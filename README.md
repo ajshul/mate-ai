@@ -14,6 +14,8 @@ A modern application that allows users to chat with OpenAI's Chat API via messag
 - SMS-only interface after signup (no need to use the web app)
 - Voice call capabilities with OpenAI's Realtime API and Twilio Voice
 - Tab-based interface for switching between text messaging and voice calls
+- Customizable UI with theme variables for easy branding
+- Automated webhook configuration for development environments
 
 ## Tech Stack
 
@@ -67,7 +69,7 @@ MONGODB_URI=mongodb://localhost:27017/mate-ai
 
 # OpenAI API Configuration
 OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-4-vision-preview
+OPENAI_MODEL=gpt-4o
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
@@ -76,6 +78,7 @@ TWILIO_PHONE_NUMBER=your_twilio_phone_number_here
 
 # Twilio Conversations Configuration
 TWILIO_WELCOME_TEMPLATE_SID=your_welcome_template_sid_here
+TWILIO_CONVERSATION_SERVICE_SID=your_conversation_service_sid_here
 
 # Voice Configuration
 VOICE_ASSISTANT_NAME="Mate AI"
@@ -95,12 +98,12 @@ VOICE_CALL_PUBLIC_URL=http://localhost:8081
 
 1. Install ngrok: https://ngrok.com/download
 
-2. Create an ngrok.yml file in the default location:
+2. Our automated setup will create an ngrok.yml file in the default location:
 
    - Mac/Linux: `~/Library/Application Support/ngrok/ngrok.yml`
    - Windows: `%APPDATA%\ngrok\ngrok.yml`
 
-3. Add the following configuration:
+3. The configuration will include:
 
 ```yaml
 version: "2"
@@ -117,21 +120,19 @@ tunnels:
 
 #### Development with ngrok (Recommended)
 
-1. Start ngrok in a separate terminal window:
+1. Start ngrok in a separate terminal window with our helper script:
 
 ```bash
-ngrok start --all
+npm run ngrok
 ```
 
-2. Copy the ngrok URLs and update your `.env` file:
+This script will:
 
-```
-BASE_URL=https://xxxx-xxx-xxx-xx.ngrok-free.app
-WEBHOOK_URL=https://xxxx-xxx-xxx-xx.ngrok-free.app/api/messages/webhook
-VOICE_CALL_PUBLIC_URL=https://yyyy-yyy-yyy-yy.ngrok-free.app
-```
+- Start ngrok tunnels for both text and voice services
+- Automatically update your `.env` file with the new URLs
+- Configure all Twilio webhooks (Voice, SMS, and Conversations)
 
-3. Start all servers in another terminal:
+2. Start all servers in another terminal:
 
 ```bash
 npm run dev:full
@@ -162,19 +163,51 @@ npm start
 ### For Text Messaging
 
 1. Set up a Twilio phone number with SMS capabilities
-2. Configure the webhook URL in your Twilio Console:
+2. For development, the webhook is automatically configured when running `npm run ngrok`
+3. For production, configure the webhook URL in your Twilio Console:
    - Go to Phone Numbers > Manage > Active Numbers
    - Select your phone number
-   - Under "Messaging", set the webhook to: `https://your-ngrok-url.ngrok-free.app/api/messages/webhook`
+   - Under "Messaging", set the webhook to: `https://your-domain.com/api/messages/webhook`
 
 ### For Voice Calls
 
 1. Make sure your Twilio phone number has Voice capabilities
-2. Configure the voice webhook in your Twilio Console:
+2. For development, the webhook is automatically configured when running `npm run ngrok`
+3. For production, configure the voice webhook in your Twilio Console:
    - Go to Phone Numbers > Manage > Active Numbers
    - Select your phone number
    - Under "Voice & Fax" > "A CALL COMES IN", set to "Webhook"
-   - Set the webhook URL to: `https://your-voice-ngrok-url.ngrok-free.app/twiml`
+   - Set the webhook URL to: `https://your-domain.com/twiml`
+
+### For Twilio Conversations
+
+1. Create a Conversations Service in your Twilio Console
+2. Add your TWILIO_CONVERSATION_SERVICE_SID to your .env file
+3. For development, the webhook is automatically configured when running `npm run ngrok`
+4. For production, set the webhook in Conversations > Services > [Your Service] > Configuration
+
+## Customizing the UI
+
+The application uses CSS variables for easy theming. To update the color scheme:
+
+1. Modify the variables in `client/src/styles/global.css`:
+
+```css
+:root {
+  --primary: #8a70ff; /* Main brand color */
+  --primary-light: #f0edff;
+  --primary-dark: #7c5be6;
+  --secondary: #3b82f6;
+  --secondary-light: #dbeafe;
+  --secondary-dark: #2563eb;
+  --gradient-start: #9966ff; /* For gradients */
+  --gradient-end: #3b82f6;
+  /* ... other variables ... */
+}
+```
+
+2. Update your logo and favicon by replacing:
+   - `client/public/icon.png`
 
 ## Using the Application
 
@@ -201,7 +234,12 @@ npm start
 
 - **WebSocket connection errors**: Check that your ngrok URLs are correct in `.env`
 - **Twilio not forwarding calls**: Verify the voice webhook URL in your Twilio Console
-- **ngrok session limit**: On the free plan, you can only run one agent at a time. Use `ngrok start --all` to start multiple tunnels in a single agent session
+- **ngrok session limit**: On the free plan, you can only run one agent at a time. Use `npm run ngrok` to properly start all required tunnels
+
+### Webhook Issues
+
+- **Webhooks not updating**: Make sure your TWILIO_CONVERSATION_SERVICE_SID is set in your .env file
+- **Manual webhook updates**: If automatic configuration fails, set webhooks manually in the Twilio Console
 
 ## Project Structure
 
@@ -237,6 +275,14 @@ npm start
 ├── package.json
 └── README.md
 ```
+
+## Recent Updates
+
+- Added automated Twilio webhook configuration for all services (Voice, SMS, Conversations)
+- Updated UI with customizable theme variables
+- Improved frontend with responsive design and better user experience
+- Added proper asset handling in webpack configuration
+- Enhanced logo and favicon implementation
 
 ## License
 

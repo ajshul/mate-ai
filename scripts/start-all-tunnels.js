@@ -6,6 +6,7 @@ const path = require("path");
 const dotenv = require("dotenv");
 const axios = require("axios");
 const os = require("os");
+const twilio = require("twilio");
 
 // Load environment variables
 dotenv.config();
@@ -20,6 +21,11 @@ const NGROK_CONFIG_PATH = path.join(
   "ngrok",
   "ngrok.yml"
 );
+
+// Twilio credentials
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
 // Fixed tunnel names based on user's configuration
 const VOICE_TUNNEL_NAME = "voice";
@@ -230,6 +236,107 @@ async function updateEnvFile(voiceUrl, textUrl) {
   }
 }
 
+async function updateTwilioWebhooks(voiceUrl, textUrl) {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
+    console.log(
+      "\n⚠️ Twilio credentials not found in .env file. Skipping webhook updates."
+    );
+    console.log(
+      "   Please set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in .env"
+    );
+    return;
+  }
+
+  try {
+    const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+
+    // Get the phone number resource
+    const phoneNumbers = await client.incomingPhoneNumbers.list({
+      phoneNumber: TWILIO_PHONE_NUMBER,
+    });
+
+    if (phoneNumbers.length === 0) {
+      console.log(
+        `\n⚠️ Phone number ${TWILIO_PHONE_NUMBER} not found in your Twilio account.`
+      );
+      return;
+    }
+
+    const phoneNumber = phoneNumbers[0];
+
+    // Update both voice and messaging webhooks for the phone number
+    const updateData = {};
+
+    if (voiceUrl) {
+      updateData.voiceUrl = `${voiceUrl}/twiml`;
+    }
+
+    if (textUrl) {
+      updateData.smsUrl = `${textUrl}/api/messages/webhook`;
+    }
+
+    // Only update if we have data to update
+    if (Object.keys(updateData).length > 0) {
+      await client.incomingPhoneNumbers(phoneNumber.sid).update(updateData);
+
+      if (voiceUrl) {
+        console.log(
+          `\n✅ Updated Twilio Voice webhook to: ${updateData.voiceUrl}`
+        );
+      }
+
+      if (textUrl) {
+        console.log(
+          `✅ Updated Twilio Messaging webhook to: ${updateData.smsUrl}`
+        );
+      }
+
+      // Update the Conversations Global webhook configuration
+      if (textUrl) {
+        try {
+          // Update the global Conversations webhook configuration
+          const webHookUrl = `${textUrl}/api/messages/webhook`;
+
+          // Using the correct method for global webhooks based on the documentation
+          await client.conversations.v1.configuration.webhooks().update({
+            filters: [
+              "onMessageAdded",
+              "onConversationAdded",
+              "onParticipantAdded",
+            ],
+            method: "POST",
+            postWebhookUrl: webHookUrl,
+            target: "webhook",
+          });
+
+          console.log(
+            `✅ Updated Twilio Conversations Global webhook to: ${webHookUrl}`
+          );
+        } catch (convError) {
+          console.error(
+            "Failed to update Conversations webhook:",
+            convError.message
+          );
+          console.log(
+            "Please update the Conversations webhook manually in your Twilio console:"
+          );
+          console.log(
+            `https://console.twilio.com/us1/develop/conversations/settings`
+          );
+          console.log(
+            `Set the Post-Event URL to: ${textUrl}/api/messages/webhook`
+          );
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Failed to update Twilio webhooks:", error.message);
+    console.log(
+      "You'll need to update the webhooks manually in your Twilio console."
+    );
+  }
+}
+
 async function startNgrok() {
   if (!(await isNgrokInstalled())) {
     console.error(`
@@ -301,15 +408,11 @@ async function startNgrok() {
           console.log(`❌ Could not find tunnel for ${TEXT_TUNNEL_NAME}`);
         }
 
-        // Display recommended .env variables but don't update the file
-        console.log("\n⚠️ Update your .env file with these values:");
-        if (voiceUrl) {
-          console.log(`VOICE_CALL_PUBLIC_URL=${voiceUrl}`);
-        }
-        if (textUrl) {
-          console.log(`BASE_URL=${textUrl}`);
-          console.log(`WEBHOOK_URL=${textUrl}/api/messages/webhook`);
-        }
+        // Update the .env file
+        await updateEnvFile(voiceUrl, textUrl);
+
+        // Update Twilio webhooks automatically
+        await updateTwilioWebhooks(voiceUrl, textUrl);
 
         // If we couldn't find specific tunnels, show what's available
         if (!voiceTunnel || !textTunnel) {
