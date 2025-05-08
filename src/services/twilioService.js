@@ -1,4 +1,5 @@
 const twilio = require("twilio");
+const User = require("../models/User");
 
 // Initialize Twilio client
 const client = twilio(
@@ -141,13 +142,54 @@ async function resetConversation(user) {
   try {
     const phoneNumber = user.phoneNumber;
 
-    // Step 1: Find all conversations this user is part of
-    const userConversations = await findConversationsForUser(phoneNumber);
+    console.log(`Resetting conversation for user: ${phoneNumber}`);
+
+    // Find all conversations in Twilio that have this phone number in their friendly name
+    const allConversations = await client.conversations.v1.conversations.list({
+      limit: 100,
+    });
+    const userConversations = [];
+
+    // Add any conversation where the user is a participant
+    for (const conversation of allConversations) {
+      if (
+        conversation.friendlyName &&
+        conversation.friendlyName.includes(phoneNumber)
+      ) {
+        userConversations.push(conversation.sid);
+        continue;
+      }
+
+      // Double-check participants to be thorough
+      try {
+        const participants = await client.conversations.v1
+          .conversations(conversation.sid)
+          .participants.list();
+
+        const userIsParticipant = participants.some(
+          (p) =>
+            p.messagingBinding && p.messagingBinding.address === phoneNumber
+        );
+
+        if (
+          userIsParticipant &&
+          !userConversations.includes(conversation.sid)
+        ) {
+          userConversations.push(conversation.sid);
+        }
+      } catch (err) {
+        console.error(
+          `Error checking participants for conversation ${conversation.sid}:`,
+          err
+        );
+      }
+    }
+
     console.log(
       `Found ${userConversations.length} conversations for user ${phoneNumber}`
     );
 
-    // Step 2: Delete all existing conversations for this user
+    // Delete all conversations for this user
     for (const conversationSid of userConversations) {
       try {
         await client.conversations.v1.conversations(conversationSid).remove();
@@ -160,35 +202,15 @@ async function resetConversation(user) {
       }
     }
 
-    // Also try to delete the conversation referenced in the user record
-    if (
-      user.conversationSid &&
-      !userConversations.includes(user.conversationSid)
-    ) {
-      try {
-        await client.conversations.v1
-          .conversations(user.conversationSid)
-          .remove();
-        console.log(
-          `Deleted conversation from user record: ${user.conversationSid}`
-        );
-      } catch (err) {
-        console.error(
-          `Could not delete conversation ${user.conversationSid}:`,
-          err.message
-        );
-      }
-    }
+    // Ensure we're waiting long enough for Twilio to complete operations
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // Small delay to ensure all operations complete on Twilio's side
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Step 3: Create a new conversation
+    // Create a new conversation
     const conversation = await createConversation(
       `Conversation for ${phoneNumber}`
     );
 
-    // Step 4: Add the user as a participant (with delay to avoid race conditions)
+    // Add the user as a participant
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const participant = await client.conversations.v1
       .conversations(conversation.sid)
@@ -204,7 +226,7 @@ async function resetConversation(user) {
 
     console.log(`Added participant to new conversation: ${participant.sid}`);
 
-    // Step 5: Send welcome message
+    // Send welcome message
     const welcomeMessage =
       "Welcome back! Your conversation has been reset. How can I help you today?";
     await sendMessage(phoneNumber, welcomeMessage, conversation.sid);
@@ -321,6 +343,235 @@ function createTwimlResponse(message) {
   return twiml;
 }
 
+/**
+ * Get media content from Twilio using the media SID
+ * @param {string} mediaSid - The Twilio media SID
+ * @param {string} conversationSid - Optional conversation SID for context
+ * @returns {Promise<Object>} - Object with media URL and content type
+ */
+async function getMediaContent(mediaSid, conversationSid = null) {
+  try {
+    console.log(`Retrieving media content for SID: ${mediaSid}`);
+
+    // Get the Twilio account SID and auth token
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+
+    // Try to get info about the conversation this media is attached to
+    let serviceSid;
+    try {
+      if (conversationSid) {
+        const conversation = await client.conversations.v1
+          .conversations(conversationSid)
+          .fetch();
+        serviceSid = conversation.chatServiceSid;
+        console.log(
+          `Found service SID ${serviceSid} for conversation ${conversationSid}`
+        );
+      } else {
+        const services = await client.conversations.v1.services.list({
+          limit: 1,
+        });
+        if (services && services.length > 0) {
+          serviceSid = services[0].sid;
+        }
+      }
+    } catch (err) {
+      console.log("Could not get conversation service SID, using default");
+    }
+
+    // If we couldn't find a service SID, use the default service
+    if (!serviceSid) {
+      serviceSid = "IS00000000000000000000000000000000";
+    }
+
+    // Construct the Twilio Media Resource URL
+    // Note: This gets the actual binary data, not just metadata
+    const mediaUrl = `https://mcs.us1.twilio.com/v1/Services/${serviceSid}/Media/${mediaSid}/Content`;
+
+    console.log(`Using Twilio media content URL: ${mediaUrl}`);
+
+    return {
+      url: mediaUrl,
+      auth: {
+        username: accountSid,
+        password: authToken,
+      },
+    };
+  } catch (error) {
+    console.error("Error retrieving media content:", error);
+    throw new Error("Failed to retrieve media content");
+  }
+}
+
+/**
+ * Clean up duplicate conversations for all users
+ * @param {string} webhookUrl - The webhook URL endpoint to check for duplicates (kept for backward compatibility)
+ * @returns {Promise<number>} - Number of conversations removed
+ */
+async function cleanupDuplicateWebhooks(webhookUrl = null) {
+  try {
+    console.log("Starting conversation cleanup...");
+    let removedCount = 0;
+
+    // Get all conversations from Twilio
+    const allConversations = await client.conversations.v1.conversations.list({
+      limit: 100,
+    });
+    console.log(
+      `Found ${allConversations.length} total conversations in Twilio`
+    );
+
+    // Group conversations by friendly name (which contains the phone number)
+    const conversationsByName = {};
+
+    // Log all conversations
+    console.log("Listing all conversations:");
+    allConversations.forEach((convo) => {
+      console.log(
+        `Conversation: ${convo.sid}, FriendlyName: ${convo.friendlyName}`
+      );
+
+      // Group by friendly name
+      if (convo.friendlyName) {
+        if (!conversationsByName[convo.friendlyName]) {
+          conversationsByName[convo.friendlyName] = [];
+        }
+        conversationsByName[convo.friendlyName].push(convo);
+      }
+    });
+
+    // Find phone numbers with multiple conversations
+    console.log("Checking for numbers with multiple conversations...");
+
+    // Get all users from database
+    const users = await User.find({});
+    console.log(`Found ${users.length} users in database`);
+
+    // Build mapping of phone numbers to user IDs and conversation SIDs
+    const phoneToUserMap = {};
+    users.forEach((user) => {
+      if (!user.phoneNumber) return;
+
+      if (!phoneToUserMap[user.phoneNumber]) {
+        phoneToUserMap[user.phoneNumber] = [];
+      }
+
+      phoneToUserMap[user.phoneNumber].push({
+        userId: user._id,
+        conversationSid: user.conversationSid,
+      });
+    });
+
+    // Check for duplicate users with the same phone number
+    for (const [phoneNumber, userList] of Object.entries(phoneToUserMap)) {
+      if (userList.length > 1) {
+        console.log(
+          `Found duplicate users for number ${phoneNumber}! User count: ${userList.length}`
+        );
+
+        // Keep only the most recently active user
+        const sortedUsers = await User.find({ phoneNumber: phoneNumber }).sort({
+          lastInteraction: -1,
+        });
+
+        // Keep the first (most recent) one, delete others
+        for (let i = 1; i < sortedUsers.length; i++) {
+          console.log(
+            `Removing duplicate user: ${sortedUsers[i]._id} with phone ${phoneNumber}`
+          );
+          await User.findByIdAndDelete(sortedUsers[i]._id);
+          removedCount++;
+        }
+      }
+    }
+
+    // Now clean up duplicate conversations for each phone number
+    for (const [friendlyName, conversations] of Object.entries(
+      conversationsByName
+    )) {
+      // Extract phone number from friendly name
+      const phoneNumberMatch = friendlyName.match(/\+\d{10,}/);
+      if (!phoneNumberMatch) continue;
+
+      const phoneNumber = phoneNumberMatch[0];
+
+      if (conversations.length > 1) {
+        console.log(
+          `Found ${conversations.length} conversations for ${phoneNumber} with friendly name "${friendlyName}"`
+        );
+
+        // Find the user for this phone number
+        const user = await User.findOne({ phoneNumber: phoneNumber });
+
+        if (user) {
+          console.log(
+            `User found for ${phoneNumber}, current conversation: ${user.conversationSid}`
+          );
+
+          // Keep the conversation that matches user.conversationSid, delete others
+          for (const convo of conversations) {
+            if (convo.sid !== user.conversationSid) {
+              try {
+                console.log(
+                  `Deleting duplicate conversation ${convo.sid} for ${phoneNumber}`
+                );
+                await client.conversations.v1.conversations(convo.sid).remove();
+                removedCount++;
+              } catch (err) {
+                console.error(
+                  `Error deleting conversation ${convo.sid}:`,
+                  err.message
+                );
+              }
+            } else {
+              console.log(
+                `Keeping conversation ${convo.sid} for ${phoneNumber}`
+              );
+            }
+          }
+        } else {
+          console.log(
+            `No user found for ${phoneNumber}, keeping most recent conversation`
+          );
+
+          // No user found, keep the most recent conversation and delete others
+          // Sort by dateCreated (recent first)
+          conversations.sort(
+            (a, b) => new Date(b.dateCreated) - new Date(a.dateCreated)
+          );
+
+          // Delete all but the most recent
+          for (let i = 1; i < conversations.length; i++) {
+            try {
+              console.log(
+                `Deleting old conversation ${conversations[i].sid} for ${phoneNumber}`
+              );
+              await client.conversations.v1
+                .conversations(conversations[i].sid)
+                .remove();
+              removedCount++;
+            } catch (err) {
+              console.error(
+                `Error deleting conversation ${conversations[i].sid}:`,
+                err.message
+              );
+            }
+          }
+        }
+      }
+    }
+
+    console.log(
+      `Cleanup complete. Removed ${removedCount} duplicate conversations/users.`
+    );
+    return removedCount;
+  } catch (error) {
+    console.error("Error during cleanup:", error);
+    return 0;
+  }
+}
+
 module.exports = {
   sendMessage,
   sendRichMessage,
@@ -330,4 +581,6 @@ module.exports = {
   configureConversationService,
   resetConversation,
   findConversationsForUser,
+  getMediaContent,
+  cleanupDuplicateWebhooks,
 };

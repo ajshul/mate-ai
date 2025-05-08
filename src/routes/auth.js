@@ -51,7 +51,7 @@ router.post("/signup", async (req, res) => {
           );
 
           return res.status(200).json({
-            message: "Conversation reset successfully",
+            message: "Conversation reset successfully!",
             isReset: true,
           });
         } catch (error) {
@@ -106,6 +106,30 @@ router.post("/signup", async (req, res) => {
   } catch (error) {
     console.error("General registration error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * Cleanup duplicate webhooks - Admin only route
+ * POST /api/auth/cleanup-webhooks
+ */
+router.post("/cleanup-webhooks", async (req, res) => {
+  try {
+    const { webhookUrl } = req.body;
+    console.log("Starting webhook cleanup process");
+
+    // Call the cleanup function
+    const removedCount = await twilioService.cleanupDuplicateWebhooks(
+      webhookUrl
+    );
+
+    res.status(200).json({
+      message: `Webhook cleanup complete. Removed ${removedCount} duplicate webhooks.`,
+      removedCount,
+    });
+  } catch (error) {
+    console.error("Error cleaning up webhooks:", error);
+    res.status(500).json({ message: "Failed to clean up webhooks" });
   }
 });
 

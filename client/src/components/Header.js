@@ -58,7 +58,7 @@ const Header = () => {
         <span>Mate AI</span>
       </Logo>
       <Nav>
-        <NavLink href="https://github.com/yourusername/mate-ai" target="_blank">
+        <NavLink href="https://github.com/ajshul/mate-ai" target="_blank">
           GitHub
         </NavLink>
       </Nav>

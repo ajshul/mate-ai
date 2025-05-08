@@ -76,7 +76,52 @@ async function getCompletion(userInput, userId) {
       // If it's just a text message
       messages.push({ role: "user", content: userInput });
     } else if (userInput.imageUrl) {
-      // If it includes an image
+      // Check if we have a valid image URL
+      if (!userInput.imageUrl) {
+        throw new Error("Missing image URL");
+      }
+
+      // Validate base64 image data if that's what we have
+      if (userInput.imageUrl.startsWith("data:")) {
+        try {
+          // Verify the base64 image format is correct
+          const [metaPart, dataPart] = userInput.imageUrl.split(",");
+          if (!metaPart || !dataPart) {
+            throw new Error("Invalid base64 image format");
+          }
+
+          // Check image type is one of the supported types
+          if (
+            !metaPart.includes("image/jpeg") &&
+            !metaPart.includes("image/png") &&
+            !metaPart.includes("image/gif") &&
+            !metaPart.includes("image/webp")
+          ) {
+            throw new Error(`Unsupported image format: ${metaPart}`);
+          }
+
+          // Make sure we have some base64 data
+          if (dataPart.length < 100) {
+            throw new Error("Image data too short, likely invalid");
+          }
+
+          console.log(
+            `Valid base64 image detected: ${metaPart}, data length: ${dataPart.length}`
+          );
+        } catch (error) {
+          console.error("Base64 image validation error:", error);
+          throw new Error("Invalid image format: " + error.message);
+        }
+      }
+
+      console.log(
+        `Processing image input. Type: ${userInput.imageUrl.substring(
+          0,
+          30
+        )}...`
+      );
+
+      // If it includes an image - the image URL can be a base64 string or a URL
       messages.push({
         role: "user",
         content: [
@@ -89,6 +134,8 @@ async function getCompletion(userInput, userId) {
       });
     }
 
+    console.log(`Sending ${messages.length} messages to OpenAI API`);
+
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
       model: MODEL,
@@ -99,7 +146,7 @@ async function getCompletion(userInput, userId) {
     return completion.choices[0].message.content;
   } catch (error) {
     console.error("OpenAI API error:", error);
-    return "I'm sorry, I encountered an error. Please try again later.";
+    return "I'm sorry, I encountered an error processing your request. Please try again later.";
   }
 }
 

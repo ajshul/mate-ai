@@ -47,14 +47,17 @@ const Label = styled.label`
   font-weight: 500;
 `;
 
-// Improved phone input styling
+// Improved PhoneInput styling
 const PhoneInputContainer = styled.div`
+  width: 100%;
+
   .PhoneInput {
     display: flex;
+    width: 100%;
     align-items: center;
     border: 1px solid #ddd;
     border-radius: 8px;
-    padding: 0.25rem 0.5rem;
+    overflow: hidden;
     transition: border-color 0.3s;
 
     &:focus-within {
@@ -66,10 +69,12 @@ const PhoneInputContainer = styled.div`
   .PhoneInputInput {
     flex: 1;
     min-width: 0;
-    padding: 0.8rem 0.5rem;
+    width: 100%;
+    padding: 0.8rem;
     border: none;
     font-size: 1rem;
-    transition: all 0.3s;
+    outline: none;
+    background-color: transparent;
 
     &:focus {
       outline: none;
@@ -79,24 +84,45 @@ const PhoneInputContainer = styled.div`
   .PhoneInputCountry {
     display: flex;
     align-items: center;
-    margin-right: 0.5rem;
+    background-color: #f5f5f5;
+    padding: 0.6rem 0.8rem;
+    margin: 0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: #e9e9e9;
+    }
+  }
+
+  /* Make the whole country area clickable */
+  .PhoneInputCountrySelect {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+    border: 0;
+    opacity: 0;
+    cursor: pointer;
   }
 
   .PhoneInputCountryIcon {
-    width: 26px;
-    height: 20px;
+    width: 24px;
+    height: 18px;
+    margin-right: 0.5rem;
     border-radius: 3px;
     overflow: hidden;
-    margin-right: 0.5rem;
   }
 
   .PhoneInputCountrySelectArrow {
-    margin-left: 0.5rem;
     width: 0;
     height: 0;
     border-style: solid;
-    border-width: 4px 4px 0 4px;
+    border-width: 5px 4px 0 4px;
     border-color: #999 transparent transparent transparent;
+    margin-left: 0.5rem;
   }
 `;
 
@@ -164,48 +190,86 @@ const Hint = styled.p`
   margin-top: 0.3rem;
 `;
 
-const SignupForm = () => {
+const SignupForm = ({ onSignupSuccess }) => {
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [userExists, setUserExists] = useState(false);
+  const [resetMessage, setResetMessage] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
+
+    // Simple validation
+    if (!phoneNumber || phoneNumber.trim() === "") {
+      setError("Please enter your phone number");
+      return;
+    }
+
+    setIsLoading(true);
     setError("");
+    setResetMessage("");
 
     try {
-      await axios.post("/api/auth/register", { phoneNumber });
-      setSuccess(true);
+      const response = await axios.post("/api/auth/signup", { phoneNumber });
+
+      // Handle case where user already exists
+      if (response.data.userExists) {
+        setUserExists(true);
+        setResetMessage(response.data.message);
+      } else if (response.data.isReset) {
+        // Handle successful reset
+        setResetMessage(response.data.message);
+        setTimeout(() => {
+          onSignupSuccess();
+        }, 2000);
+      } else {
+        // Handle successful new signup
+        onSignupSuccess();
+      }
     } catch (err) {
-      console.error("Error registering:", err);
       setError(
-        err.response?.data?.message || "An error occurred during registration"
+        err.response?.data?.message || "Failed to sign up. Please try again."
       );
     } finally {
-      setSubmitting(false);
+      setIsLoading(false);
     }
   };
 
-  if (success) {
-    return (
-      <FormContainer>
-        <Title>Success!</Title>
-        <Message>
-          We've sent a welcome message to your phone. Please check your messages
-          and reply to start chatting with Mate AI!
-        </Message>
-      </FormContainer>
-    );
-  }
+  const handleResetConversation = async () => {
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await axios.post("/api/auth/signup", {
+        phoneNumber,
+        resetConversation: true,
+      });
+
+      setResetMessage(response.data.message);
+      setUserExists(false);
+
+      setTimeout(() => {
+        onSignupSuccess();
+      }, 2000);
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Failed to reset conversation. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <FormContainer>
+    <FormContainer className="animate__animated animate__fadeInUp">
       <Title>Welcome to Mate AI</Title>
       <Subtitle>
         Enter your phone number to start chatting with our AI assistant
       </Subtitle>
+
+      {resetMessage && <Message>{resetMessage}</Message>}
 
       <Form onSubmit={handleSubmit}>
         <FormGroup>
@@ -213,21 +277,39 @@ const SignupForm = () => {
           <PhoneInputContainer>
             <PhoneInput
               international
-              defaultCountry="CA"
+              defaultCountry="US"
+              placeholder="Enter phone number"
               value={phoneNumber}
               onChange={setPhoneNumber}
-              inputComponent={React.forwardRef((props, ref) => (
-                <input id="phoneNumber" ref={ref} {...props} />
-              ))}
+              disabled={userExists || isLoading}
             />
           </PhoneInputContainer>
           <Hint>We'll send you a welcome message to this number</Hint>
           {error && <ErrorMessage>{error}</ErrorMessage>}
         </FormGroup>
 
-        <Button type="submit" fullWidth disabled={submitting}>
-          {submitting ? "Processing..." : "Get Started"}
-        </Button>
+        {userExists ? (
+          <ButtonGroup>
+            <SecondaryButton
+              type="button"
+              onClick={() => setUserExists(false)}
+              disabled={isLoading}
+            >
+              Cancel
+            </SecondaryButton>
+            <Button
+              type="button"
+              onClick={handleResetConversation}
+              disabled={isLoading}
+            >
+              {isLoading ? "Processing..." : "Reset Conversation"}
+            </Button>
+          </ButtonGroup>
+        ) : (
+          <Button type="submit" disabled={isLoading} fullWidth>
+            {isLoading ? "Signing Up..." : "Get Started"}
+          </Button>
+        )}
       </Form>
     </FormContainer>
   );

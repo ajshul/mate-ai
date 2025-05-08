@@ -81,70 +81,179 @@ router.post("/webhook", async (req, res) => {
 
     // Check if message has media (image)
     if (Media && Media.length > 0) {
-      // Get the media URL from Twilio
-      const mediaUrl = Media[0].Url;
+      console.log(`Received message with media:`, JSON.stringify(Media));
 
-      // Create directory if it doesn't exist
-      const uploadDir = path.join(__dirname, "../../uploads");
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+      // Parse the Media array if it's a string
+      let parsedMedia;
+      try {
+        parsedMedia = typeof Media === "string" ? JSON.parse(Media) : Media;
+      } catch (err) {
+        console.error("Error parsing Media string:", err);
+        parsedMedia = [];
       }
 
-      try {
-        // Download the image
-        const response = await axios({
-          method: "get",
-          url: mediaUrl,
-          responseType: "stream",
-          auth: {
-            username: process.env.TWILIO_ACCOUNT_SID,
-            password: process.env.TWILIO_AUTH_TOKEN,
-          },
-        });
+      if (parsedMedia.length > 0 && parsedMedia[0].Sid) {
+        const mediaSid = parsedMedia[0].Sid;
+        const contentType = parsedMedia[0].ContentType || "image/jpeg";
+        const filename = parsedMedia[0].Filename || `image-${Date.now()}.jpg`;
 
-        // Generate unique filename
-        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        const filename = uniqueSuffix + ".jpg"; // Default to jpg
-        const filepath = path.join(uploadDir, filename);
-
-        // Save the file
-        const writer = fs.createWriteStream(filepath);
-        response.data.pipe(writer);
-
-        // Wait for the file to be written
-        await new Promise((resolve, reject) => {
-          writer.on("finish", resolve);
-          writer.on("error", reject);
-        });
-
-        // Create public URL for stored image
-        const baseUrl =
-          process.env.BASE_URL ||
-          `http://localhost:${process.env.PORT || 3000}`;
-        imageUrl = `${baseUrl}/uploads/${filename}`;
-
-        // Save the incoming message with image
-        const incomingMessage = new Message({
-          user: user._id,
-          content: Body || "Image message",
-          imageUrl,
-          isFromUser: true,
-        });
-
-        await incomingMessage.save();
-
-        // Pass image to OpenAI
-        aiResponse = await openaiService.getCompletion(
-          {
-            text: Body || "What's in this image?",
-            imageUrl,
-          },
-          user._id
+        console.log(
+          `Processing media with SID: ${mediaSid}, type: ${contentType}, filename: ${filename}`
         );
-      } catch (err) {
-        console.error("Error processing image:", err);
+
+        try {
+          // Get the media content using the Twilio service
+          const mediaContent = await twilioService.getMediaContent(
+            mediaSid,
+            ConversationSid
+          );
+
+          // Create directory if it doesn't exist
+          const uploadDir = path.join(__dirname, "../../uploads");
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+
+          // Generate unique filename based on the original name
+          const fileExt = filename.split(".").pop().toLowerCase() || "jpg";
+          const uniqueSuffix =
+            Date.now() + "-" + Math.round(Math.random() * 1e9);
+          const newFilename = `${uniqueSuffix}.${fileExt}`;
+          const filepath = path.join(uploadDir, newFilename);
+
+          console.log(`Downloading media from URL: ${mediaContent.url}`);
+
+          // Download the image with the auth details from getMediaContent
+          const response = await axios({
+            method: "get",
+            url: mediaContent.url,
+            responseType: "arraybuffer",
+            auth: mediaContent.auth,
+            validateStatus: function (status) {
+              return status >= 200 && status < 300;
+            },
+          });
+
+          // Verify we have image data
+          if (!response.data || response.data.length === 0) {
+            throw new Error("Received empty image data from Twilio");
+          }
+
+          // Check the response content type and log it
+          console.log(
+            `Received image with content type: ${
+              response.headers["content-type"] || contentType
+            }`
+          );
+
+          // Save the file
+          fs.writeFileSync(filepath, Buffer.from(response.data));
+          console.log(
+            `Image saved to ${filepath} (${fs.statSync(filepath).size} bytes)`
+          );
+
+          // Verify saved file
+          if (!fs.existsSync(filepath) || fs.statSync(filepath).size === 0) {
+            throw new Error(
+              `Failed to save image file or file is empty: ${filepath}`
+            );
+          }
+
+          // Create public URL for stored image
+          const baseUrl =
+            process.env.BASE_URL ||
+            `http://localhost:${process.env.PORT || 3000}`;
+          imageUrl = `${baseUrl}/uploads/${newFilename}`;
+
+          // Check the file to confirm it's a valid image
+          try {
+            // Read a small chunk to verify it's an image file
+            const header = fs.readFileSync(filepath, { length: 12 });
+
+            // Check for valid image signatures
+            const isJPEG =
+              header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff;
+            const isPNG =
+              header[0] === 0x89 &&
+              header[1] === 0x50 &&
+              header[2] === 0x4e &&
+              header[3] === 0x47;
+            const isGIF =
+              header[0] === 0x47 && header[1] === 0x49 && header[2] === 0x46;
+
+            if (!isJPEG && !isPNG && !isGIF) {
+              console.warn(
+                "The file doesn't have a standard image signature. Will attempt processing anyway."
+              );
+            } else {
+              console.log(
+                `Verified image format: ${
+                  isJPEG ? "JPEG" : isPNG ? "PNG" : isGIF ? "GIF" : "Unknown"
+                }`
+              );
+            }
+          } catch (err) {
+            console.warn("Error checking image signature:", err);
+          }
+
+          // Convert image to base64 for OpenAI API with correct MIME type
+          const imageBuffer = fs.readFileSync(filepath);
+          const base64Image = imageBuffer.toString("base64");
+
+          // Make sure we're using the correct content type
+          let finalContentType = contentType;
+          if (!finalContentType.includes("/")) {
+            // If content type doesn't have a slash, it's probably invalid
+            // Determine content type from file extension
+            if (fileExt === "jpg" || fileExt === "jpeg") {
+              finalContentType = "image/jpeg";
+            } else if (fileExt === "png") {
+              finalContentType = "image/png";
+            } else if (fileExt === "gif") {
+              finalContentType = "image/gif";
+            } else if (fileExt === "webp") {
+              finalContentType = "image/webp";
+            } else {
+              // Default to JPEG
+              finalContentType = "image/jpeg";
+            }
+          }
+
+          const base64Url = `data:${finalContentType};base64,${base64Image}`;
+          console.log(
+            `Prepared base64 image with type ${finalContentType}, length: ${base64Image.length} chars`
+          );
+
+          // Save the incoming message with image
+          const incomingMessage = new Message({
+            user: user._id,
+            content: Body || "Image message",
+            imageUrl,
+            isFromUser: true,
+          });
+
+          await incomingMessage.save();
+
+          // Pass image to OpenAI using base64 encoding
+          aiResponse = await openaiService.getCompletion(
+            {
+              text: Body || "What's in this image?",
+              imageUrl: base64Url,
+            },
+            user._id
+          );
+        } catch (err) {
+          console.error("Error processing image:", err);
+          aiResponse =
+            "I'm sorry, I couldn't process the image you sent. Could you try sending it again?";
+        }
+      } else {
+        console.error(
+          "Media object missing SID. Full Media object:",
+          JSON.stringify(Media)
+        );
         aiResponse =
-          "I'm sorry, I couldn't process the image you sent. Could you try sending it again?";
+          "I couldn't process the image. Please try sending it again.";
       }
     } else if (Body) {
       // Regular text message
