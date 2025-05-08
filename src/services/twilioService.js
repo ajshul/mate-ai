@@ -12,8 +12,11 @@ const client = twilio(
  */
 async function createConversation(friendlyName) {
   try {
+    // Skip configuring service for now as it doesn't work properly
+    // await configureConversationService();
+
     const conversation = await client.conversations.v1.conversations.create({
-      friendlyName: friendlyName || "AI Assistant Conversation",
+      friendlyName: friendlyName || "Mate AI Conversation",
     });
 
     console.log(`Conversation created with SID: ${conversation.sid}`);
@@ -25,6 +28,21 @@ async function createConversation(friendlyName) {
 }
 
 /**
+ * Configure conversation service to disable default messages
+ * Note: This is not working correctly with the API version and needs to be fixed
+ */
+async function configureConversationService() {
+  try {
+    // Get the default conversation service - skip for now
+    // This functionality is not working properly with the current API version
+    return null;
+  } catch (error) {
+    console.error("Error configuring conversation service:", error);
+    return null;
+  }
+}
+
+/**
  * Add a participant to a conversation
  * @param {string} conversationSid - The conversation SID
  * @param {string} phoneNumber - The phone number to add
@@ -32,18 +50,83 @@ async function createConversation(friendlyName) {
  */
 async function addParticipant(conversationSid, phoneNumber) {
   try {
+    // Add attributes to customize messaging behavior
+    const attributes = JSON.stringify({
+      custom_message_behavior: {
+        suppress_stop_help_message: true, // Suppress STOP/HELP messages
+      },
+    });
+
+    // Check if participant already exists by listing the participants
+    const participants = await client.conversations.v1
+      .conversations(conversationSid)
+      .participants.list();
+
+    const existingParticipant = participants.find(
+      (p) => p.messagingBinding && p.messagingBinding.address === phoneNumber
+    );
+
+    if (existingParticipant) {
+      console.log(
+        `Participant already exists with SID: ${existingParticipant.sid}`
+      );
+      return existingParticipant;
+    }
+
     const participant = await client.conversations.v1
       .conversations(conversationSid)
       .participants.create({
         "messagingBinding.address": phoneNumber,
         "messagingBinding.proxyAddress": process.env.TWILIO_PHONE_NUMBER,
+        attributes: attributes,
       });
 
     console.log(`Participant added with SID: ${participant.sid}`);
     return participant;
   } catch (error) {
     console.error("Error adding participant:", error);
-    throw new Error("Failed to add participant");
+    // This is not a critical error, so we don't need to throw
+    return null;
+  }
+}
+
+/**
+ * Reset a user's conversation by deleting the old one and creating a new one
+ * @param {object} user - The user object with phoneNumber
+ * @returns {Promise<string>} - The new conversation SID
+ */
+async function resetConversation(user) {
+  try {
+    // If there's an existing conversation, delete it
+    if (user.conversationSid) {
+      try {
+        await client.conversations.v1
+          .conversations(user.conversationSid)
+          .remove();
+        console.log(`Deleted old conversation: ${user.conversationSid}`);
+      } catch (err) {
+        console.error(`Could not delete conversation: ${err.message}`);
+        // Continue anyway
+      }
+    }
+
+    // Create a new conversation
+    const conversation = await createConversation(
+      `Conversation for ${user.phoneNumber}`
+    );
+
+    // Add the user as a participant
+    await addParticipant(conversation.sid, user.phoneNumber);
+
+    // Send welcome message
+    const welcomeMessage =
+      "Welcome back! Your conversation has been reset. How can I help you today?";
+    await sendMessage(user.phoneNumber, welcomeMessage, conversation.sid);
+
+    return conversation.sid;
+  } catch (error) {
+    console.error("Error resetting conversation:", error);
+    throw new Error("Failed to reset conversation");
   }
 }
 
@@ -70,7 +153,7 @@ async function sendMessage(to, body, conversationSid = null) {
       .conversations(convoSid)
       .messages.create({
         body: body,
-        author: "AI Assistant",
+        author: "Mate AI",
       });
 
     console.log(`Message sent with SID: ${message.sid}`);
@@ -111,7 +194,7 @@ async function sendRichMessage(
       .messages.create({
         contentSid: contentSid,
         contentVariables: JSON.stringify(variables),
-        author: "AI Assistant",
+        author: "Mate AI",
       });
 
     console.log(`Rich message sent with SID: ${message.sid}`);
@@ -140,4 +223,6 @@ module.exports = {
   createConversation,
   addParticipant,
   createTwimlResponse,
+  configureConversationService,
+  resetConversation,
 };

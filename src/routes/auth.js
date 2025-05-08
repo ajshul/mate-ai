@@ -4,10 +4,13 @@ const User = require("../models/User");
 const twilioService = require("../services/twilioService");
 const openaiService = require("../services/openaiService");
 
-// Register a new user
-router.post("/register", async (req, res) => {
+/**
+ * User registration/signup
+ * POST /api/auth/signup
+ */
+router.post("/signup", async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { phoneNumber, resetConversation } = req.body;
 
     if (!phoneNumber) {
       return res.status(400).json({ message: "Phone number is required" });
@@ -22,38 +25,74 @@ router.post("/register", async (req, res) => {
     // Check if user already exists
     let user = await User.findOne({ phoneNumber: formattedNumber });
 
+    // If user already exists
     if (user) {
-      return res.status(400).json({ message: "User already exists" });
+      // If resetConversation flag is set, reset the conversation
+      if (resetConversation) {
+        try {
+          // Reset the conversation
+          const newConversationSid = await twilioService.resetConversation(
+            user
+          );
+
+          // Update the user record with the new conversation SID
+          user.conversationSid = newConversationSid;
+          await user.save();
+
+          return res.status(200).json({
+            message: "Conversation reset successfully",
+            isReset: true,
+          });
+        } catch (error) {
+          console.error("Error resetting conversation:", error);
+          return res
+            .status(500)
+            .json({ message: "Failed to reset conversation" });
+        }
+      }
+
+      // Otherwise, inform the user they've already signed up
+      return res.status(200).json({
+        message:
+          "You've already signed up. Would you like to reset your conversation?",
+        userExists: true,
+      });
     }
 
-    // Create a conversation for this user
-    const conversation = await twilioService.createConversation(
-      `Conversation for ${formattedNumber}`
-    );
+    // New user signup flow
+    try {
+      // Create a conversation for this user
+      const conversation = await twilioService.createConversation(
+        `Conversation for ${formattedNumber}`
+      );
 
-    // Create new user with conversation SID
-    user = new User({
-      phoneNumber: formattedNumber,
-      conversationSid: conversation.sid,
-    });
+      // Create new user with conversation SID
+      user = new User({
+        phoneNumber: formattedNumber,
+        conversationSid: conversation.sid,
+      });
 
-    await user.save();
+      await user.save();
 
-    // Add user as a participant to the conversation
-    await twilioService.addParticipant(conversation.sid, formattedNumber);
+      // Add user as a participant to the conversation
+      await twilioService.addParticipant(conversation.sid, formattedNumber);
 
-    // Send welcome message via Twilio Conversations
-    const welcomeMessage =
-      "Hi there! I'm your AI assistant. You can ask me anything. How can I help you today?";
-    await twilioService.sendMessage(
-      formattedNumber,
-      welcomeMessage,
-      conversation.sid
-    );
+      // Send welcome message via Twilio Conversations
+      const welcomeMessage =
+        "Hi there! I'm your AI assistant, Mate! You can ask me anything. How can I help you today?";
+      await twilioService.sendMessage(
+        formattedNumber,
+        welcomeMessage,
+        conversation.sid
+      );
 
-    res.status(201).json({ message: "User registered successfully" });
+      res.status(201).json({ message: "User registered successfully" });
+    } catch (error) {
+      console.error("Error during new user signup:", error);
+      res.status(500).json({ message: "Server error during signup" });
+    }
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error("General registration error:", error);
     res.status(500).json({ message: "Server error" });
   }
 });

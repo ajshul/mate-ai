@@ -3,6 +3,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const path = require("path");
+const fs = require("fs");
 
 // Import routes
 const authRoutes = require("./routes/auth");
@@ -14,11 +15,16 @@ const app = express();
 // Middleware
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "../public")));
+
+// Serve static files from the dist directory
+app.use(express.static(path.join(__dirname, "../public/dist")));
+
+// Serve uploaded files
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Connect to MongoDB
 mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/imessage-ai", {
+  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/mate-ai", {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
@@ -33,9 +39,16 @@ mongoose
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
-// Serve the signup page
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "index.html"));
+// Create uploads directory if it doesn't exist
+const uploadDir = path.join(__dirname, "../uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log("Created uploads directory");
+}
+
+// Serve the React app for all other routes
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/dist", "index.html"));
 });
 
 // Start the server
