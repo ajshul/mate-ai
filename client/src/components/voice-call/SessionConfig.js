@@ -92,20 +92,33 @@ const Select = styled.select`
   }
 `;
 
-const SaveButton = styled.button`
-  background-color: ${(props) => (props.disabled ? "#f3f4f6" : "#6e8efb")};
-  color: ${(props) => (props.disabled ? "#9ca3af" : "white")};
-  border: none;
+const ConfigName = styled.input`
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
   border-radius: 6px;
-  padding: 0.75rem 1rem;
+  width: 100%;
+  outline: none;
+
+  &:focus {
+    border-color: #8a70ff;
+    box-shadow: 0 0 0 2px rgba(138, 112, 255, 0.1);
+  }
+`;
+
+const ActionButton = styled.button`
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
   font-weight: 500;
   font-size: 0.875rem;
+  border: none;
+  background-color: ${(props) => (props.disabled ? "#f3f4f6" : "#8a70ff")};
+  color: ${(props) => (props.disabled ? "#9ca3af" : "white")};
   cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
-  transition: background-color 0.2s;
-  margin-top: 1rem;
+  transition: all 0.2s;
 
   &:hover:not(:disabled) {
-    background-color: #5a7df9;
+    background-color: #7c5be6;
   }
 `;
 
@@ -233,12 +246,12 @@ const SessionConfig = ({ onSave, callActive }) => {
             </Select>
           </FormGroup>
 
-          <SaveButton
+          <ActionButton
             type="submit"
             disabled={!hasChanges || saveStatus === "saving" || callActive}
           >
             {saveStatus === "saving" ? "Saving..." : "Save Configuration"}
-          </SaveButton>
+          </ActionButton>
         </Form>
       </ConfigContent>
     </ConfigContainer>

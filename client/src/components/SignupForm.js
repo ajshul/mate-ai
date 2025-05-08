@@ -133,39 +133,42 @@ const ButtonGroup = styled.div`
   justify-content: center;
 `;
 
-const Button = styled.button`
-  background: linear-gradient(135deg, #6e8efb, #a777e3);
-  color: white;
+const SubmitButton = styled.button`
+  width: 100%;
+  padding: 12px;
   border: none;
-  border-radius: 8px;
-  padding: 0.8rem;
+  border-radius: 6px;
+  font-weight: 500;
   font-size: 1rem;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  flex: ${(props) => (props.fullWidth ? "1" : "none")};
-  min-width: ${(props) => (props.fullWidth ? "auto" : "140px")};
-  text-align: center;
+  transition: all 0.2s;
+  margin-top: 1.5rem;
+  background: linear-gradient(135deg, #9966ff, #3b82f6);
+  color: white;
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(110, 142, 251, 0.3);
+    opacity: 0.9;
   }
 
   &:disabled {
-    opacity: 0.7;
+    background: white;
+    color: #8a70ff;
+    border: 1px solid #8a70ff;
     cursor: not-allowed;
-    transform: none;
+  }
+
+  &:disabled:hover {
+    background: #f0edff;
   }
 `;
 
-const SecondaryButton = styled(Button)`
+const SecondaryButton = styled(SubmitButton)`
   background: white;
-  color: #6e8efb;
-  border: 1px solid #6e8efb;
+  color: var(--primary);
+  border: 1px solid var(--primary);
 
   &:hover {
-    background: #f8f9ff;
+    background: var(--primary-light);
   }
 `;
 
@@ -297,18 +300,18 @@ const SignupForm = ({ onSignupSuccess }) => {
             >
               Cancel
             </SecondaryButton>
-            <Button
+            <SubmitButton
               type="button"
               onClick={handleResetConversation}
               disabled={isLoading}
             >
               {isLoading ? "Processing..." : "Reset Conversation"}
-            </Button>
+            </SubmitButton>
           </ButtonGroup>
         ) : (
-          <Button type="submit" disabled={isLoading} fullWidth>
+          <SubmitButton type="submit" disabled={isLoading}>
             {isLoading ? "Signing Up..." : "Get Started"}
-          </Button>
+          </SubmitButton>
         )}
       </Form>
     </FormContainer>

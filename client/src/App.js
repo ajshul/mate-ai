@@ -33,23 +33,30 @@ const TabsContainer = styled.div`
   overflow: hidden;
 `;
 
-const Tab = styled.button`
-  padding: 1rem 2rem;
-  font-size: 1rem;
-  font-weight: 500;
+const TabButton = styled.button`
+  padding: 1rem 1.5rem;
   border: none;
   background: none;
-  cursor: pointer;
-  color: ${(props) => (props.$active ? "#6e8efb" : "#6b7280")};
-  border-bottom: 2px solid
-    ${(props) => (props.$active ? "#6e8efb" : "transparent")};
-  transition: all 0.2s;
+  font-size: 1rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
+  color: ${(props) =>
+    props.$active ? "var(--primary)" : "var(--text-secondary)"};
+  border-bottom: 2px solid
+    ${(props) => (props.$active ? "var(--primary)" : "transparent")};
+  transition: all 0.2s;
 
   &:hover {
-    color: ${(props) => (props.$active ? "#6e8efb" : "#111827")};
-    background-color: ${(props) => (props.$active ? "transparent" : "#f9fafb")};
+    color: var(--primary);
+    background-color: var(--primary-light);
   }
+`;
+
+const TabLabel = styled.span`
+  font-weight: 600;
 `;
 
 const InterfaceContainer = styled.div`
@@ -76,18 +83,20 @@ const App = () => {
         ) : (
           <>
             <TabsContainer>
-              <Tab
+              <TabButton
                 $active={activeTab === "text"}
                 onClick={() => setActiveTab("text")}
               >
-                Text Messaging
-              </Tab>
-              <Tab
+                <TabLabel $active={activeTab === "text"}>
+                  Text Messaging
+                </TabLabel>
+              </TabButton>
+              <TabButton
                 $active={activeTab === "voice"}
                 onClick={() => setActiveTab("voice")}
               >
-                Voice Calls
-              </Tab>
+                <TabLabel $active={activeTab === "voice"}>Voice Calls</TabLabel>
+              </TabButton>
             </TabsContainer>
 
             <InterfaceContainer $isVoice={activeTab === "voice"}>

@@ -20,26 +20,18 @@ const Logo = styled.div`
   display: flex;
   align-items: center;
 
+  img {
+    height: 32px;
+    width: 32px;
+    margin-right: 0.5rem;
+  }
+
   span {
     margin-left: 0.5rem;
-    background: linear-gradient(135deg, #6e8efb, #a777e3);
+    background: linear-gradient(135deg, #9966ff, #3b82f6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-`;
-
-const LogoIcon = styled.div`
-  background: linear-gradient(135deg, #6e8efb, #a777e3);
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 800;
-  font-size: 22px;
-  box-shadow: 0 2px 8px rgba(110, 142, 251, 0.3);
 `;
 
 const Nav = styled.nav`
@@ -55,8 +47,8 @@ const NavLink = styled.a`
   border-radius: 6px;
 
   &:hover {
-    color: #6e8efb;
-    background-color: #f5f7ff;
+    color: #8a70ff;
+    background-color: #f0edff;
   }
 `;
 
@@ -64,7 +56,7 @@ const Header = () => {
   return (
     <HeaderContainer>
       <Logo>
-        <LogoIcon>M</LogoIcon>
+        <img src="./icon.png" alt="Mate AI Logo" />
         <span>Mate AI</span>
       </Logo>
       <Nav>

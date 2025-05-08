@@ -62,7 +62,7 @@ const ItemHeader = styled.div`
 `;
 
 const ItemIcon = styled.div`
-  color: ${(props) => (props.$done ? "#22c55e" : "#9ca3af")};
+  color: ${(props) => (props.$done ? "#22c55e" : "var(--text-secondary)")};
 `;
 
 const ItemTitle = styled.span`
@@ -80,24 +80,19 @@ const ItemAction = styled.div`
   align-items: center;
 `;
 
-const Button = styled.button`
-  background-color: ${(props) => (props.$primary ? "#6e8efb" : "white")};
-  color: ${(props) => (props.$primary ? "white" : "#374151")};
-  border: 1px solid ${(props) => (props.$primary ? "#6e8efb" : "#e5e7eb")};
+const ActionButton = styled.button`
+  padding: 0.75rem 1.5rem;
   border-radius: 6px;
-  padding: 0.5rem 1rem;
   font-weight: 500;
   font-size: 0.875rem;
+  border: 1px solid ${(props) => (props.$primary ? "transparent" : "#d1d5db")};
+  background-color: ${(props) => (props.$primary ? "#8a70ff" : "white")};
+  color: ${(props) => (props.$primary ? "white" : "#374151")};
   cursor: pointer;
   transition: all 0.2s;
 
   &:hover {
-    background-color: ${(props) => (props.$primary ? "#5a7df9" : "#f9fafb")};
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    background-color: ${(props) => (props.$primary ? "#7c5be6" : "#f9fafb")};
   }
 `;
 
@@ -300,11 +295,11 @@ const SetupChecklist = ({
       done: hasCredentials,
       description: "Then update account details in .env file",
       field: (
-        <Button
+        <ActionButton
           onClick={() => window.open("https://console.twilio.com/", "_blank")}
         >
           Open Twilio Console
-        </Button>
+        </ActionButton>
       ),
     },
     {
@@ -337,7 +332,7 @@ const SetupChecklist = ({
             </select>
           )
         ) : (
-          <Button
+          <ActionButton
             onClick={() =>
               window.open(
                 "https://console.twilio.com/us1/develop/phone-numbers/manage/incoming",
@@ -346,7 +341,7 @@ const SetupChecklist = ({
             }
           >
             Set up Twilio phone number
-          </Button>
+          </ActionButton>
         ),
     },
     {
@@ -362,13 +357,13 @@ const SetupChecklist = ({
       field: (
         <InputGroup>
           <Input value={publicUrl} disabled />
-          <Button
+          <ActionButton
             onClick={checkNgrok}
             disabled={ngrokLoading || !localServerUp || !publicUrl}
           >
             {ngrokLoading ? <LoadingSpinner /> : null}
             Check
-          </Button>
+          </ActionButton>
         </InputGroup>
       ),
     },
@@ -379,13 +374,13 @@ const SetupChecklist = ({
       field: (
         <InputGroup>
           <Input value={currentVoiceUrl} disabled />
-          <Button
+          <ActionButton
             onClick={updateWebhook}
             disabled={webhookLoading || !publicUrl}
           >
             {webhookLoading ? <LoadingSpinner /> : null}
             Update
-          </Button>
+          </ActionButton>
         </InputGroup>
       ),
     },
@@ -452,15 +447,15 @@ const SetupChecklist = ({
         </div>
 
         <DialogFooter>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button
+          <ActionButton onClick={onClose}>Cancel</ActionButton>
+          <ActionButton
             $primary
             onClick={() => onComplete()}
             disabled={!allChecksPassed}
             style={{ marginLeft: "0.5rem" }}
           >
             Complete Setup
-          </Button>
+          </ActionButton>
         </DialogFooter>
       </DialogContent>
     </DialogOverlay>
