@@ -242,6 +242,10 @@ npm start
 
 MIT
 
+## Acknowledgments
+
+- [OpenAI Realtime API with Twilio Quickstart](https://github.com/openai/openai-realtime-twilio-demo) - This project's voice assistant functionality was inspired by and built with reference to OpenAI's official demo for combining OpenAI's Realtime API with Twilio's phone calling capability.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
