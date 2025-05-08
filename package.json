@@ -1,0 +1,21 @@
+{
+  "name": "imessage-ai",
+  "version": "1.0.0",
+  "description": "Chat with OpenAI via iMessage",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "body-parser": "^1.20.2",
+    "dotenv": "^16.3.1",
+    "openai": "^4.20.0",
+    "twilio": "^4.19.0",
+    "mongoose": "^7.6.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
