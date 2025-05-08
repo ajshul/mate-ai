@@ -4,14 +4,15 @@ A modern application that allows users to chat with OpenAI's Chat API via messag
 
 ## Features
 
-- Modern React-based web signup interface
+- Modern React-based web signup interface with improved phone number input
 - Automatic welcome message
 - Integration with OpenAI's Chat API (including GPT-4 Vision)
-- Image recognition and analysis through SMS/messaging
+- Image recognition and analysis exclusively through SMS/messaging
 - Persistent conversation history
 - Rich interactive messages using Twilio Conversations API
-- Natural conversational responses without default legal messages
+- Natural conversational responses without default legal messages (STOP/HELP suppression)
 - SMS-only interface after signup (no need to use the web app)
+- New SVG favicon for a modern look
 
 ## Tech Stack
 
@@ -126,6 +127,7 @@ Note: Image uploads are handled exclusively through messaging apps, not through 
    - Send text messages to get AI responses
    - Send images to get visual analysis
    - No need to return to the website
+   - Improved handling of 404 errors during signup
 
 ## Testing Rich Messages
 
