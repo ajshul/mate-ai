@@ -8,6 +8,9 @@ const HeaderContainer = styled.header`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 `;
 
 const Logo = styled.div`
@@ -19,20 +22,24 @@ const Logo = styled.div`
 
   span {
     margin-left: 0.5rem;
+    background: linear-gradient(135deg, #6e8efb, #a777e3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 `;
 
 const LogoIcon = styled.div`
   background: linear-gradient(135deg, #6e8efb, #a777e3);
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
   font-weight: 800;
-  font-size: 20px;
+  font-size: 22px;
+  box-shadow: 0 2px 8px rgba(110, 142, 251, 0.3);
 `;
 
 const Nav = styled.nav`
@@ -43,10 +50,13 @@ const Nav = styled.nav`
 const NavLink = styled.a`
   color: #555;
   font-weight: 500;
-  transition: color 0.2s;
+  transition: all 0.2s;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
 
   &:hover {
     color: #6e8efb;
+    background-color: #f5f7ff;
   }
 `;
 

@@ -21,6 +21,7 @@ a {
 button {
   cursor: pointer;
   font-family: inherit;
+  transition: all 0.2s;
 }
 
 input,
@@ -39,6 +40,26 @@ textarea {
   padding-bottom: 4rem;
 }
 
+/* Improved scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
 /* Animations */
 .fade-in {
   animation: fadeIn 0.3s ease-in;
@@ -51,4 +72,35 @@ textarea {
   to {
     opacity: 1;
   }
+}
+
+/* Message bubble animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.message-in {
+  animation: slideInLeft 0.3s ease-out;
+}
+
+.message-out {
+  animation: slideInRight 0.3s ease-out;
 }

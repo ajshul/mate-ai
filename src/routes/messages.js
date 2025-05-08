@@ -328,4 +328,41 @@ router.post("/rich-message", async (req, res) => {
   }
 });
 
+// Get all messages for the current user (for the frontend interface)
+router.get("/", async (req, res) => {
+  try {
+    // In a real app, we'd get the user from the session or auth token
+    // For this example, we'll get the most recent user
+    const user = await User.findOne().sort({ lastInteraction: -1 });
+
+    if (!user) {
+      return res.status(404).json({ message: "No users found" });
+    }
+
+    // Get messages for this user
+    let messages = [];
+
+    // Find messages by user ID instead of conversationSid
+    messages = await Message.find({ user: user._id })
+      .sort({ timestamp: 1 })
+      .limit(100);
+
+    // Format messages for the frontend
+    messages = messages.map((msg) => ({
+      id: msg._id,
+      content: msg.content,
+      from: msg.isFromUser ? "user" : "assistant",
+      timestamp: msg.timestamp,
+    }));
+
+    return res.json({
+      messages,
+      phoneNumber: user.phoneNumber,
+    });
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

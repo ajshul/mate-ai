@@ -8,6 +8,7 @@ const fs = require("fs");
 // Import routes
 const authRoutes = require("./routes/auth");
 const messageRoutes = require("./routes/messages");
+const voiceCallRoutes = require("./routes/voiceCall");
 
 // Create Express app
 const app = express();
@@ -38,6 +39,12 @@ mongoose
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/voice-call", voiceCallRoutes);
+
+// Voice call URL endpoint
+app.get("/api/voice-call-url", (req, res) => {
+  res.json({ url: process.env.VOICE_CALL_PUBLIC_URL || "" });
+});
 
 // Create uploads directory if it doesn't exist
 const uploadDir = path.join(__dirname, "../uploads");

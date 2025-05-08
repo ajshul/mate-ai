@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>Welcome to Mate AI. Please wait while we connect you to your AI assistant.</Say>
+    <Pause length="1"/>
+    <Say>You can start talking now!</Say>
+    <Connect>
+        <Stream url="{{WS_URL}}" />
+    </Connect>
+</Response> 

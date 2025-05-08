@@ -1,6 +1,6 @@
 # Mate AI
 
-A modern application that allows users to chat with OpenAI's Chat API via messaging services. Users sign up through a sleek React-based web interface by providing their phone number, and then they can chat with the AI through their messaging app.
+A modern application that allows users to chat with OpenAI's Chat API via messaging services. Users sign up through a sleek React-based web interface by providing their phone number, and then they can chat with the AI through their messaging app. The app also supports voice calls using OpenAI's Realtime API.
 
 ## Features
 
@@ -12,7 +12,8 @@ A modern application that allows users to chat with OpenAI's Chat API via messag
 - Rich interactive messages using Twilio Conversations API
 - Natural conversational responses without default legal messages (STOP/HELP suppression)
 - SMS-only interface after signup (no need to use the web app)
-- New SVG favicon for a modern look
+- Voice call capabilities with OpenAI's Realtime API and Twilio Voice
+- Tab-based interface for switching between text messaging and voice calls
 
 ## Tech Stack
 
@@ -20,129 +21,187 @@ A modern application that allows users to chat with OpenAI's Chat API via messag
 - MongoDB for data storage
 - React with styled-components for the frontend
 - Twilio Conversations API for rich messaging integration
-- OpenAI API for AI chat and image recognition capabilities
+- Twilio Voice API for voice calls
+- OpenAI API for AI chat, image recognition, and voice conversations
 - Webpack for frontend bundling
 
 ## Prerequisites
 
-- Node.js (v14+)
+- Node.js (v16+)
 - MongoDB
-- Twilio account with Conversations API enabled
-- OpenAI API key with access to vision models
+- Twilio account with Conversations API and Voice capabilities
+- OpenAI API key with access to vision models and Realtime API
+- ngrok for exposing your local server to the internet (for webhooks and voice calls)
 
-## Installation
+## Installation and Setup
 
-1. Clone the repository:
+### 1. Clone the Repository
 
-   ```
-   git clone https://github.com/yourusername/mate-ai.git
-   cd mate-ai
-   ```
+```bash
+git clone https://github.com/yourusername/mate-ai.git
+cd mate-ai
+```
 
-2. Install dependencies:
+### 2. Install Dependencies
 
-   ```
-   npm install
-   ```
+Run the unified setup command to install all dependencies:
 
-3. Create a `.env` file in the root directory with the following variables (copy from env.sample):
+```bash
+npm run setup
+```
 
-   ```
-   # Server Configuration
-   PORT=3000
-   MONGODB_URI=mongodb://localhost:27017/mate-ai
+This will:
 
-   # OpenAI API Configuration
-   OPENAI_API_KEY=your_openai_api_key_here
-   OPENAI_MODEL=gpt-4-vision-preview
+- Install dependencies for the main application
+- Install dependencies for the voice call server
+- Run a setup check to verify your environment
 
-   # Twilio Configuration
-   TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
-   TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
-   TWILIO_PHONE_NUMBER=your_twilio_phone_number_here
+### 3. Configure Environment Variables
 
-   # Twilio Conversations Configuration
-   TWILIO_WELCOME_TEMPLATE_SID=your_welcome_template_sid_here
-
-   # Base URL for images and webhooks (in production, set to your domain)
-   BASE_URL=http://localhost:3000
-   WEBHOOK_URL=https://your-domain.com/api/messages/webhook
-   ```
-
-4. Build the React frontend:
-
-   ```
-   npm run build
-   ```
-
-5. Start the server:
-
-   ```
-   npm start
-   ```
-
-6. For development (with auto-reload for both frontend and backend):
-   ```
-   npm run dev:full
-   ```
-
-## Setting Up Twilio Conversations API
-
-To enable rich messaging with Twilio Conversations API:
-
-1. Create a Twilio account if you don't already have one
-2. Enable the Conversations API in your Twilio Console
-3. Set up webhook endpoints for your Conversations API
-4. Create content templates using the Content Template Builder
-
-### Setting Up the Webhook
-
-Set up a webhook in your Twilio Conversations Service that points to your server's `/api/messages/webhook` endpoint. You can use a service like ngrok during development to expose your local server to the internet.
-
-The application automatically configures your Twilio Conversations Service to suppress the default legal messages about "STOP" and "HELP" commands.
-
-### Creating Content Templates
-
-Use the Content Template Builder to create interactive message templates:
-
-1. Go to [Twilio Content API](https://content.twilio.com/v1/Content) or use the API
-2. Create templates with various content types (text, quick-reply, list-picker, etc.)
-3. Use these templates in your application by referencing their Content SIDs
-
-## Image Support
-
-The application supports receiving and analyzing images:
-
-1. Users can send images through their messaging app
-2. The AI analyzes the images using OpenAI's vision capabilities
-3. The AI responds with a description or answer about the image content
-
-Note: Image uploads are handled exclusively through messaging apps, not through the website.
-
-## User Experience Flow
-
-1. Users sign up with their phone number on the web interface
-2. They immediately receive a welcome message on their phone
-3. From that point, all interaction happens through their messaging app:
-   - Send text messages to get AI responses
-   - Send images to get visual analysis
-   - No need to return to the website
-   - Improved handling of 404 errors during signup
-
-## Testing Rich Messages
-
-After setup, you can test sending rich messages using the `/api/messages/rich-message` endpoint:
+Create a `.env` file in the root directory with the following variables:
 
 ```
-POST /api/messages/rich-message
-{
-  "phoneNumber": "+1234567890",
-  "contentSid": "HXXXXXXXXXXXXXXXXX",
-  "variables": {
-    "1": "John"
-  }
-}
+# Server Configuration
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/mate-ai
+
+# OpenAI API Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4-vision-preview
+
+# Twilio Configuration
+TWILIO_ACCOUNT_SID=your_twilio_account_sid_here
+TWILIO_AUTH_TOKEN=your_twilio_auth_token_here
+TWILIO_PHONE_NUMBER=your_twilio_phone_number_here
+
+# Twilio Conversations Configuration
+TWILIO_WELCOME_TEMPLATE_SID=your_welcome_template_sid_here
+
+# Voice Configuration
+VOICE_ASSISTANT_NAME="Mate AI"
+VOICE_MODEL="alloy"  # Options: alloy, echo, shimmer, etc.
+VOICE_ASSISTANT_PROMPT="You are a helpful AI assistant from Mate AI. Be conversational and helpful."
+
+# Voice Call Server Configuration
+VOICE_CALL_PORT=8081
+
+# URLs (updated when using ngrok)
+BASE_URL=http://localhost:3000
+WEBHOOK_URL=http://localhost:3000/api/messages/webhook
+VOICE_CALL_PUBLIC_URL=http://localhost:8081
 ```
+
+### 4. Configure ngrok (Required for Production/Testing)
+
+1. Install ngrok: https://ngrok.com/download
+
+2. Create an ngrok.yml file in the default location:
+
+   - Mac/Linux: `~/Library/Application Support/ngrok/ngrok.yml`
+   - Windows: `%APPDATA%\ngrok\ngrok.yml`
+
+3. Add the following configuration:
+
+```yaml
+version: "2"
+tunnels:
+  voice:
+    proto: http
+    addr: 8081
+  text:
+    proto: http
+    addr: 3000
+```
+
+### 5. Running the Application
+
+#### Development with ngrok (Recommended)
+
+1. Start ngrok in a separate terminal window:
+
+```bash
+ngrok start --all
+```
+
+2. Copy the ngrok URLs and update your `.env` file:
+
+```
+BASE_URL=https://xxxx-xxx-xxx-xx.ngrok-free.app
+WEBHOOK_URL=https://xxxx-xxx-xxx-xx.ngrok-free.app/api/messages/webhook
+VOICE_CALL_PUBLIC_URL=https://yyyy-yyy-yyy-yy.ngrok-free.app
+```
+
+3. Start all servers in another terminal:
+
+```bash
+npm run dev:full
+```
+
+This starts:
+
+- Main Express server (port 3000)
+- React frontend (port 8080)
+- Voice call server (port 8081)
+
+#### Production
+
+1. Build the application:
+
+```bash
+npm run build:all
+```
+
+2. Start the application:
+
+```bash
+npm start
+```
+
+## Setting Up Twilio
+
+### For Text Messaging
+
+1. Set up a Twilio phone number with SMS capabilities
+2. Configure the webhook URL in your Twilio Console:
+   - Go to Phone Numbers > Manage > Active Numbers
+   - Select your phone number
+   - Under "Messaging", set the webhook to: `https://your-ngrok-url.ngrok-free.app/api/messages/webhook`
+
+### For Voice Calls
+
+1. Make sure your Twilio phone number has Voice capabilities
+2. Configure the voice webhook in your Twilio Console:
+   - Go to Phone Numbers > Manage > Active Numbers
+   - Select your phone number
+   - Under "Voice & Fax" > "A CALL COMES IN", set to "Webhook"
+   - Set the webhook URL to: `https://your-voice-ngrok-url.ngrok-free.app/twiml`
+
+## Using the Application
+
+1. Start the application and open it in your browser
+2. Sign up with your phone number
+3. You'll receive a welcome text message
+4. Use the SMS interface to:
+   - Send text messages to chat with the AI
+   - Send images for analysis
+5. To use voice calls:
+   - Navigate to the "Voice Calls" tab in the web interface
+   - Complete the setup if prompted
+   - Call your Twilio phone number to talk with the AI
+
+## Troubleshooting
+
+### General Issues
+
+- **Missing environment variables**: Check that all required variables are in your `.env` file
+- **MongoDB connection failures**: Ensure MongoDB is running locally
+- **API key issues**: Verify your OpenAI and Twilio API keys are valid
+
+### Voice Call Issues
+
+- **WebSocket connection errors**: Check that your ngrok URLs are correct in `.env`
+- **Twilio not forwarding calls**: Verify the voice webhook URL in your Twilio Console
+- **ngrok session limit**: On the free plan, you can only run one agent at a time. Use `ngrok start --all` to start multiple tunnels in a single agent session
 
 ## Project Structure
 
@@ -152,6 +211,7 @@ POST /api/messages/rich-message
 │   │   └── index.html     # HTML template
 │   └── src/               # React source code
 │       ├── components/    # React components
+│       │   └── voice-call/# Voice call components
 │       ├── styles/        # Stylesheets
 │       ├── App.js         # Main App component
 │       └── index.js       # Entry point
@@ -162,16 +222,18 @@ POST /api/messages/rich-message
 │   │   └── Message.js
 │   ├── routes/            # API routes
 │   │   ├── auth.js
-│   │   └── messages.js
-│   └── services/          # Business logic
-│       ├── twilioService.js
-│       └── openaiService.js
+│   │   ├── messages.js
+│   │   └── voiceCall.js   # Voice call API routes
+│   ├── services/          # Business logic
+│   │   ├── twilioService.js
+│   │   └── openaiService.js
+│   └── voice-call-server/ # Voice call WebSocket server
+│       └── src/           # Server source code
 ├── uploads/               # Uploaded image files
 ├── public/                # Compiled frontend
 │   └── dist/              # Webpack output
+├── scripts/               # Utility scripts
 ├── .env                   # Environment variables
-├── env.sample             # Sample environment variables
-├── webpack.config.js      # Webpack configuration
 ├── package.json
 └── README.md
 ```
