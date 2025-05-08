@@ -12,20 +12,59 @@ const axios = require("axios");
 router.post("/webhook", async (req, res) => {
   try {
     // For Conversations API webhook, the payload structure is different
-    const { Author, Body, ConversationSid, MessageSid, Media } = req.body;
+    const { Author, Body, ConversationSid, MessageSid, Media, Attributes } =
+      req.body;
 
     if (!ConversationSid) {
       return res.status(400).json({ message: "Invalid request" });
     }
 
-    // Skip messages authored by our system
-    if (Author === "AI Assistant" || Author === "Mate AI") {
+    // Parse attributes if present
+    let messageAttributes = {};
+    try {
+      if (Attributes) {
+        messageAttributes = JSON.parse(Attributes);
+      }
+    } catch (err) {
+      console.error("Error parsing message attributes:", err);
+    }
+
+    // Skip messages authored by our system - multiple checks for robustness
+    if (
+      Author === "AI Assistant" ||
+      Author === "Mate AI" ||
+      Author === undefined ||
+      (messageAttributes && messageAttributes.isSystemMessage === true)
+    ) {
       return res.status(200).send("OK");
     }
 
-    // Find user by conversation SID
-    const user = await User.findOne({ conversationSid: ConversationSid });
+    console.log(
+      `Received message from conversation: ${ConversationSid}, Author: ${
+        Author || "Unknown"
+      }`
+    );
 
+    // Find user by conversation SID
+    let user = await User.findOne({ conversationSid: ConversationSid });
+
+    // If user not found by conversation SID, try to get the phone number from the webhook
+    // and search for the user by phone number
+    if (!user && Author) {
+      const phoneNumber = Author;
+      user = await User.findOne({ phoneNumber });
+
+      // If we found the user by phone number, update their conversationSid
+      if (user) {
+        console.log(
+          `Found user by phone number: ${phoneNumber}, updating conversation SID from ${user.conversationSid} to ${ConversationSid}`
+        );
+        user.conversationSid = ConversationSid;
+        await user.save();
+      }
+    }
+
+    // If still no user found, log and respond
     if (!user) {
       console.log(
         `Message received from unknown conversation: ${ConversationSid}`

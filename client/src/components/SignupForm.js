@@ -47,35 +47,56 @@ const Label = styled.label`
   font-weight: 500;
 `;
 
-// Add custom styles to override the default PhoneInput styling
+// Improved phone input styling
 const PhoneInputContainer = styled.div`
   .PhoneInput {
     display: flex;
     align-items: center;
-  }
-
-  .PhoneInputInput {
-    flex: 1;
-    min-width: 0;
-    padding: 0.8rem 1rem;
     border: 1px solid #ddd;
     border-radius: 8px;
-    font-size: 1rem;
+    padding: 0.25rem 0.5rem;
     transition: border-color 0.3s;
 
-    &:focus {
-      outline: none;
+    &:focus-within {
       border-color: #6e8efb;
       box-shadow: 0 0 0 2px rgba(110, 142, 251, 0.2);
     }
   }
 
-  .PhoneInputCountryIcon {
-    margin-right: 0.8rem;
+  .PhoneInputInput {
+    flex: 1;
+    min-width: 0;
+    padding: 0.8rem 0.5rem;
+    border: none;
+    font-size: 1rem;
+    transition: all 0.3s;
+
+    &:focus {
+      outline: none;
+    }
   }
 
   .PhoneInputCountry {
+    display: flex;
+    align-items: center;
     margin-right: 0.5rem;
+  }
+
+  .PhoneInputCountryIcon {
+    width: 26px;
+    height: 20px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-right: 0.5rem;
+  }
+
+  .PhoneInputCountrySelectArrow {
+    margin-left: 0.5rem;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 4px 4px 0 4px;
+    border-color: #999 transparent transparent transparent;
   }
 `;
 
@@ -83,6 +104,7 @@ const ButtonGroup = styled.div`
   display: flex;
   gap: 1rem;
   width: 100%;
+  justify-content: center;
 `;
 
 const Button = styled.button`
@@ -96,6 +118,8 @@ const Button = styled.button`
   cursor: pointer;
   transition: all 0.3s ease;
   flex: ${(props) => (props.fullWidth ? "1" : "none")};
+  min-width: ${(props) => (props.fullWidth ? "auto" : "140px")};
+  text-align: center;
 
   &:hover {
     transform: translateY(-2px);
@@ -140,86 +164,48 @@ const Hint = styled.p`
   margin-top: 0.3rem;
 `;
 
-const SignupForm = ({ onSignupSuccess }) => {
+const SignupForm = () => {
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [userExists, setUserExists] = useState(false);
-  const [resetMessage, setResetMessage] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Simple validation
-    if (!phoneNumber || phoneNumber.trim() === "") {
-      setError("Please enter your phone number");
-      return;
-    }
-
-    setIsLoading(true);
-    setError("");
-    setResetMessage("");
-
-    try {
-      const response = await axios.post("/api/auth/signup", { phoneNumber });
-
-      // Handle case where user already exists
-      if (response.data.userExists) {
-        setUserExists(true);
-        setResetMessage(response.data.message);
-      } else if (response.data.isReset) {
-        // Handle successful reset
-        setResetMessage(response.data.message);
-        setTimeout(() => {
-          onSignupSuccess();
-        }, 2000);
-      } else {
-        // Handle successful new signup
-        onSignupSuccess();
-      }
-    } catch (err) {
-      setError(
-        err.response?.data?.message || "Failed to sign up. Please try again."
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResetConversation = async () => {
-    setIsLoading(true);
+    setSubmitting(true);
     setError("");
 
     try {
-      const response = await axios.post("/api/auth/signup", {
-        phoneNumber,
-        resetConversation: true,
-      });
-
-      setResetMessage(response.data.message);
-      setUserExists(false);
-
-      setTimeout(() => {
-        onSignupSuccess();
-      }, 2000);
+      await axios.post("/api/auth/register", { phoneNumber });
+      setSuccess(true);
     } catch (err) {
+      console.error("Error registering:", err);
       setError(
-        err.response?.data?.message ||
-          "Failed to reset conversation. Please try again."
+        err.response?.data?.message || "An error occurred during registration"
       );
     } finally {
-      setIsLoading(false);
+      setSubmitting(false);
     }
   };
+
+  if (success) {
+    return (
+      <FormContainer>
+        <Title>Success!</Title>
+        <Message>
+          We've sent a welcome message to your phone. Please check your messages
+          and reply to start chatting with Mate AI!
+        </Message>
+      </FormContainer>
+    );
+  }
 
   return (
-    <FormContainer className="animate__animated animate__fadeInUp">
+    <FormContainer>
       <Title>Welcome to Mate AI</Title>
       <Subtitle>
         Enter your phone number to start chatting with our AI assistant
       </Subtitle>
-
-      {resetMessage && <Message>{resetMessage}</Message>}
 
       <Form onSubmit={handleSubmit}>
         <FormGroup>
@@ -227,39 +213,21 @@ const SignupForm = ({ onSignupSuccess }) => {
           <PhoneInputContainer>
             <PhoneInput
               international
-              defaultCountry="US"
-              placeholder="Enter phone number"
+              defaultCountry="CA"
               value={phoneNumber}
               onChange={setPhoneNumber}
-              disabled={userExists || isLoading}
+              inputComponent={React.forwardRef((props, ref) => (
+                <input id="phoneNumber" ref={ref} {...props} />
+              ))}
             />
           </PhoneInputContainer>
           <Hint>We'll send you a welcome message to this number</Hint>
           {error && <ErrorMessage>{error}</ErrorMessage>}
         </FormGroup>
 
-        {userExists ? (
-          <ButtonGroup>
-            <SecondaryButton
-              type="button"
-              onClick={() => setUserExists(false)}
-              disabled={isLoading}
-            >
-              Cancel
-            </SecondaryButton>
-            <Button
-              type="button"
-              onClick={handleResetConversation}
-              disabled={isLoading}
-            >
-              {isLoading ? "Processing..." : "Reset Conversation"}
-            </Button>
-          </ButtonGroup>
-        ) : (
-          <Button type="submit" disabled={isLoading} fullWidth>
-            {isLoading ? "Signing Up..." : "Get Started"}
-          </Button>
-        )}
+        <Button type="submit" fullWidth disabled={submitting}>
+          {submitting ? "Processing..." : "Get Started"}
+        </Button>
       </Form>
     </FormContainer>
   );

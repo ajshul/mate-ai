@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require("../models/User");
 const twilioService = require("../services/twilioService");
 const openaiService = require("../services/openaiService");
+const Message = require("../models/Message");
 
 /**
  * User registration/signup
@@ -30,14 +31,24 @@ router.post("/signup", async (req, res) => {
       // If resetConversation flag is set, reset the conversation
       if (resetConversation) {
         try {
+          console.log(`Resetting conversation for user: ${formattedNumber}`);
+
           // Reset the conversation
           const newConversationSid = await twilioService.resetConversation(
             user
           );
 
+          // Delete old messages
+          await Message.deleteMany({ user: user._id });
+
           // Update the user record with the new conversation SID
           user.conversationSid = newConversationSid;
+          user.lastInteraction = new Date();
           await user.save();
+
+          console.log(
+            `Conversation reset successful. New SID: ${newConversationSid}`
+          );
 
           return res.status(200).json({
             message: "Conversation reset successfully",
@@ -70,6 +81,7 @@ router.post("/signup", async (req, res) => {
       user = new User({
         phoneNumber: formattedNumber,
         conversationSid: conversation.sid,
+        lastInteraction: new Date(),
       });
 
       await user.save();

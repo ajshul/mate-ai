@@ -91,37 +91,123 @@ async function addParticipant(conversationSid, phoneNumber) {
 }
 
 /**
- * Reset a user's conversation by deleting the old one and creating a new one
+ * Find all conversations for a given phone number
+ * @param {string} phoneNumber - The phone number to search for
+ * @returns {Promise<Array>} - Array of conversation SIDs
+ */
+async function findConversationsForUser(phoneNumber) {
+  try {
+    const conversations = await client.conversations.v1.conversations.list({
+      limit: 100,
+    });
+    const userConversations = [];
+
+    // For each conversation, check if the user is a participant
+    for (const conversation of conversations) {
+      try {
+        const participants = await client.conversations.v1
+          .conversations(conversation.sid)
+          .participants.list();
+
+        const userIsParticipant = participants.some(
+          (p) =>
+            p.messagingBinding && p.messagingBinding.address === phoneNumber
+        );
+
+        if (userIsParticipant) {
+          userConversations.push(conversation.sid);
+        }
+      } catch (err) {
+        console.error(
+          `Error checking participants for conversation ${conversation.sid}:`,
+          err
+        );
+      }
+    }
+
+    return userConversations;
+  } catch (error) {
+    console.error("Error finding conversations for user:", error);
+    return [];
+  }
+}
+
+/**
+ * Reset a user's conversation by deleting the old ones and creating a new one
  * @param {object} user - The user object with phoneNumber
  * @returns {Promise<string>} - The new conversation SID
  */
 async function resetConversation(user) {
   try {
-    // If there's an existing conversation, delete it
-    if (user.conversationSid) {
+    const phoneNumber = user.phoneNumber;
+
+    // Step 1: Find all conversations this user is part of
+    const userConversations = await findConversationsForUser(phoneNumber);
+    console.log(
+      `Found ${userConversations.length} conversations for user ${phoneNumber}`
+    );
+
+    // Step 2: Delete all existing conversations for this user
+    for (const conversationSid of userConversations) {
+      try {
+        await client.conversations.v1.conversations(conversationSid).remove();
+        console.log(`Deleted conversation: ${conversationSid}`);
+      } catch (err) {
+        console.error(
+          `Could not delete conversation ${conversationSid}:`,
+          err.message
+        );
+      }
+    }
+
+    // Also try to delete the conversation referenced in the user record
+    if (
+      user.conversationSid &&
+      !userConversations.includes(user.conversationSid)
+    ) {
       try {
         await client.conversations.v1
           .conversations(user.conversationSid)
           .remove();
-        console.log(`Deleted old conversation: ${user.conversationSid}`);
+        console.log(
+          `Deleted conversation from user record: ${user.conversationSid}`
+        );
       } catch (err) {
-        console.error(`Could not delete conversation: ${err.message}`);
-        // Continue anyway
+        console.error(
+          `Could not delete conversation ${user.conversationSid}:`,
+          err.message
+        );
       }
     }
 
-    // Create a new conversation
+    // Small delay to ensure all operations complete on Twilio's side
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Step 3: Create a new conversation
     const conversation = await createConversation(
-      `Conversation for ${user.phoneNumber}`
+      `Conversation for ${phoneNumber}`
     );
 
-    // Add the user as a participant
-    await addParticipant(conversation.sid, user.phoneNumber);
+    // Step 4: Add the user as a participant (with delay to avoid race conditions)
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const participant = await client.conversations.v1
+      .conversations(conversation.sid)
+      .participants.create({
+        "messagingBinding.address": phoneNumber,
+        "messagingBinding.proxyAddress": process.env.TWILIO_PHONE_NUMBER,
+        attributes: JSON.stringify({
+          custom_message_behavior: {
+            suppress_stop_help_message: true,
+          },
+        }),
+      });
 
-    // Send welcome message
+    console.log(`Added participant to new conversation: ${participant.sid}`);
+
+    // Step 5: Send welcome message
     const welcomeMessage =
       "Welcome back! Your conversation has been reset. How can I help you today?";
-    await sendMessage(user.phoneNumber, welcomeMessage, conversation.sid);
+    await sendMessage(phoneNumber, welcomeMessage, conversation.sid);
 
     return conversation.sid;
   } catch (error) {
@@ -148,12 +234,22 @@ async function sendMessage(to, body, conversationSid = null) {
       await addParticipant(convoSid, to);
     }
 
-    // Send the message to the conversation
+    // Define a consistent author name to help with webhook filtering
+    const authorName = "Mate AI";
+
+    // Set message attributes to help identify system messages
+    const attributes = JSON.stringify({
+      isSystemMessage: true,
+      source: "app_backend",
+    });
+
+    // Send the message to the conversation with consistent author and attributes
     const message = await client.conversations.v1
       .conversations(convoSid)
       .messages.create({
         body: body,
-        author: "Mate AI",
+        author: authorName,
+        attributes: attributes,
       });
 
     console.log(`Message sent with SID: ${message.sid}`);
@@ -188,13 +284,21 @@ async function sendRichMessage(
       await addParticipant(convoSid, to);
     }
 
+    // Define a consistent author name and attributes
+    const authorName = "Mate AI";
+    const attributes = JSON.stringify({
+      isSystemMessage: true,
+      source: "app_backend",
+    });
+
     // Send rich content message to the conversation
     const message = await client.conversations.v1
       .conversations(convoSid)
       .messages.create({
         contentSid: contentSid,
         contentVariables: JSON.stringify(variables),
-        author: "Mate AI",
+        author: authorName,
+        attributes: attributes,
       });
 
     console.log(`Rich message sent with SID: ${message.sid}`);
@@ -225,4 +329,5 @@ module.exports = {
   createTwimlResponse,
   configureConversationService,
   resetConversation,
+  findConversationsForUser,
 };
