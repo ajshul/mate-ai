@@ -30,10 +30,36 @@ A modern application that allows users to chat with OpenAI's Chat API via messag
 ## Prerequisites
 
 - Node.js (v16+)
-- MongoDB
+- MongoDB (v6.0+)
 - Twilio account with Conversations API and Voice capabilities
 - OpenAI API key with access to vision models and Realtime API
 - ngrok for exposing your local server to the internet (for webhooks and voice calls)
+
+### Setting Up MongoDB
+
+1. **Install MongoDB Community Edition**:
+   ```bash
+   # For macOS with Homebrew:
+   brew tap mongodb/brew
+   brew install mongodb-community@6.0
+   ```
+
+2. **Start MongoDB**:
+   ```bash
+   # Run MongoDB as a service (starts automatically on login)
+   brew services start mongodb-community@6.0
+   
+   # Or run it directly for this session only
+   mongod --dbpath ~/data/db
+   ```
+
+3. **Verify MongoDB is running**:
+   ```bash
+   # Check if MongoDB service is running
+   brew services list | grep mongo
+   ```
+
+   The output should show `mongodb-community` as `started`.
 
 ## Installation and Setup
 
@@ -227,8 +253,25 @@ The application uses CSS variables for easy theming. To update the color scheme:
 ### General Issues
 
 - **Missing environment variables**: Check that all required variables are in your `.env` file
-- **MongoDB connection failures**: Ensure MongoDB is running locally
 - **API key issues**: Verify your OpenAI and Twilio API keys are valid
+
+### MongoDB Issues
+
+- **MongoDB connection failures**: If you see errors like `MongooseServerSelectionError: connect ECONNREFUSED` or `MongooseError: Operation 'users.findOne()' buffering timed out`, check that MongoDB is running:
+  ```bash
+  # Check MongoDB service status
+  brew services list | grep mongo
+  
+  # If not running, start it with:
+  brew services start mongodb-community@6.0
+  
+  # Or run directly without service:
+  mongod --dbpath ~/data/db
+  ```
+
+- **MongoDB version conflicts**: Ensure you're using MongoDB 6.0+
+
+- **Database permissions**: If you see authentication errors, ensure your MongoDB instance doesn't require authentication or update your connection string in `.env` accordingly
 
 ### Voice Call Issues
 

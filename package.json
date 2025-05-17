@@ -10,7 +10,7 @@
     "build:voice": "cd src/voice-call-server && npm run build",
     "build:all": "npm run build && npm run build:voice",
     "client": "webpack serve --mode development",
-    "voice": "cd src/voice-call-server && npm run dev",
+    "voice": "cd src/voice-call-server && npm run dev:watch",
     "ngrok": "node scripts/start-all-tunnels.js",
     "check": "node scripts/check-setup.js",
     "postsetup": "chmod +x scripts/start-all-tunnels.js && chmod +x scripts/check-setup.js",

@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node --esm' src/server.ts"
+    "dev": "node --loader ts-node/esm src/server.ts",
+    "dev:watch": "nodemon --watch 'src/**/*.ts' --exec 'node --loader ts-node/esm' src/server.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
