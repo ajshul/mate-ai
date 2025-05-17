@@ -16,6 +16,7 @@
     "postsetup": "chmod +x scripts/start-all-tunnels.js && chmod +x scripts/check-setup.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run client\" \"npm run voice\"",
     "dev:full:ngrok": "concurrently \"npm run dev\" \"npm run client\" \"npm run voice\" \"npm run ngrok\"",
+    "dev:full:auto": "node scripts/dev-with-dependencies.js",
     "setup": "npm install && cd src/voice-call-server && npm install && npm run check"
   },
   "dependencies": {

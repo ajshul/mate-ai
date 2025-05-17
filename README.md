@@ -144,6 +144,40 @@ tunnels:
 
 ### 5. Running the Application
 
+#### Development
+
+For local development, you can use the following commands:
+
+```bash
+# Run all components (main server, client and voice server)
+npm run dev:full
+
+# Run all components + ngrok for webhooks and external access
+npm run dev:full:ngrok
+
+# Automated setup - sets up MongoDB, ngrok, and all components with guided prompts
+npm run dev:full:auto
+```
+
+#### Automated Development Setup
+
+The `dev:full:auto` command provides an interactive setup that will:
+
+1. Check if MongoDB is running and prompt to start it if needed
+2. Check if ngrok is already running and handle any conflicts
+3. Start ngrok with proper tunnels for voice and text
+4. Update all Twilio webhook URLs and environment variables
+5. Start all application components (main server, client, and voice server)
+
+This is the recommended way to start the application as it ensures all dependencies
+are properly configured before starting the main application.
+
+This script will:
+
+- Start ngrok tunnels for both text and voice services
+- Automatically update your `.env` file with the new URLs
+- Configure all Twilio webhooks (Voice, SMS, and Conversations)
+
 #### Development with ngrok (Recommended)
 
 1. Start ngrok in a separate terminal window with our helper script:
